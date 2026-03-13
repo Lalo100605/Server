@@ -6,15 +6,21 @@ using System.Threading;
 class ChatClient
 {
     static TcpClient client;
-
     static NetworkStream stream;
 
     static void Main()
     {
-        client = new TcpClient("127.0.0.1", 5007); // IP del servidor
+        client = new TcpClient("127.0.0.1", 5007);
         stream = client.GetStream();
 
+        Console.Write("Ingresa tu nombre: ");
+        string username = Console.ReadLine();
+
+        byte[] nameData = Encoding.UTF8.GetBytes(username);
+        stream.Write(nameData, 0, nameData.Length);
+
         Console.WriteLine("Connected to server.");
+        Console.WriteLine("Formato para enviar mensaje: usuario|mensaje");
 
         Thread receiveThread = new Thread(ReceiveMessages);
         receiveThread.Start();
@@ -40,5 +46,4 @@ class ChatClient
             Console.WriteLine(">> " + message);
         }
     }
-
 }

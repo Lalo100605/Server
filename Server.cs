@@ -3,12 +3,14 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Collections.Generic;
 
 class ChatServer
 {
     static TcpListener server;
 
-    static List<TcpClient> clients = new List<TcpClient>();
+    static Dictionary<string, TcpClient> clients = new Dictionary<string, TcpClient>();
+
     static void Main(string[] args)
     {
         server = new TcpListener(IPAddress.Any, 5007);
@@ -19,9 +21,6 @@ class ChatServer
         while (true)
         {
             TcpClient client = server.AcceptTcpClient();
-            clients.Add(client);
-
-            Console.WriteLine("New client connected.");
 
             Thread t = new Thread(HandleClient);
             t.Start(client);
@@ -34,24 +33,42 @@ class ChatServer
         NetworkStream stream = client.GetStream();
         byte[] buffer = new byte[1024];
 
+        // Primer mensaje = nombre del usuario
+        int bytesRead = stream.Read(buffer, 0, buffer.Length);
+        string username = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+        clients.Add(username, client);
+
+        Console.WriteLine(username + " se conectó.");
+
         while (true)
         {
-            int bytesRead = stream.Read(buffer, 0, buffer.Length);
+            bytesRead = stream.Read(buffer, 0, buffer.Length);
             string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-            Console.WriteLine("Mensaje: " + message);
-
-            Broadcast(message);
+            SendPrivateMessage(username, message);
         }
     }
 
-    static void Broadcast(string message)
+    static void SendPrivateMessage(string sender, string message)
     {
-        byte[] data = Encoding.UTF8.GetBytes(message);
+        string[] parts = message.Split('|');
 
-        foreach (var client in clients)
+        if (parts.Length < 2)
+            return;
+
+        string receiver = parts[0];
+        string text = parts[1];
+
+        if (clients.ContainsKey(receiver))
         {
+            TcpClient client = clients[receiver];
             NetworkStream stream = client.GetStream();
+
+            string finalMessage = sender + ": " + text;
+
+            byte[] data = Encoding.UTF8.GetBytes(finalMessage);
+
             stream.Write(data, 0, data.Length);
         }
     }
